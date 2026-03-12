@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Панель мастера</title>
+</head>
+<body>
+    <h1>Панель мастера</h1>
+    <label>Выберите мастера:</label>
+    <select id="masterSelect">
+        <option value="2">Мастер Петров (ID 2)</option>
+        <option value="3">Мастер Сидоров (ID 3)</option>
+    </select>
+    <button onclick="loadRequests()">Показать заявки</button>
+    <hr>
+    <h2>Мои заявки</h2>
+    <table border="1" id="requestsTable">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Клиент</th>
+                <th>Телефон</th>
+                <th>Адрес</th>
+                <th>Проблема</th>
+                <th>Статус</th>
+                <th>Действия</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+    <br>
+    <a href="/static/index.html">На главную</a>
+
+    <script>
+        let currentMasterId = 2;
+
+        document.getElementById('masterSelect').addEventListener('change', (e) => {
+            currentMasterId = parseInt(e.target.value);
+            loadRequests();
+        });
+
+        async function loadRequests() {
+            const response = await fetch(`/api/master/${currentMasterId}/requests`);
+            const requests = await response.json();
+            const tbody = document.querySelector('#requestsTable tbody');
+            tbody.innerHTML = '';
+            for (const req of requests) {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${req.id}</td>
+                    <td>${req.clientName}</td>
+                    <td>${req.phone}</td>
+                    <td>${req.address}</td>
+                    <td>${req.problemText}</td>
+                    <td>${req.status}</td>
+                    <td>
+                        ${req.status === 'assigned' ? `<button onclick="takeRequest(${req.id})">Взять в работу</button>` : ''}
+                        ${req.status === 'in_progress' ? `<button onclick="completeRequest(${req.id})">Завершить</button>` : ''}
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            }
+        }
+
+        async function takeRequest(requestId) {
+            const response = await fetch(`/api/master/requests/${requestId}/take?master_id=${currentMasterId}`, {
+                method: 'PATCH'
+            });
+            if (response.ok) {
+                alert('Заявка взята в работу');
+                loadRequests();
+            } else {
+                const err = await response.json();
+                alert('Ошибка: ' + JSON.stringify(err));
+            }
+        }
+
+        async function completeRequest(requestId) {
+            const response = await fetch(`/api/master/requests/${requestId}/complete?master_id=${currentMasterId}`, {
+                method: 'PATCH'
+            });
+            if (response.ok) {
+                alert('Заявка завершена');
+                loadRequests();
+            } else {
+                const err = await response.json();
+                alert('Ошибка: ' + JSON.stringify(err));
+            }
+        }
+
+        loadRequests();
+    </script>
+</body>
+</html>

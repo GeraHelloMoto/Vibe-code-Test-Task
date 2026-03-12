@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Панель диспетчера</title>
+</head>
+<body>
+    <h1>Панель диспетчера</h1>
+    <label>Фильтр по статусу:</label>
+    <select id="statusFilter">
+        <option value="">Все</option>
+        <option value="new">Новые</option>
+        <option value="assigned">Назначенные</option>
+        <option value="in_progress">В работе</option>
+        <option value="done">Завершенные</option>
+        <option value="canceled">Отмененные</option>
+    </select>
+    <button onclick="loadRequests()">Применить</button>
+    <hr>
+    <h2>Список заявок</h2>
+    <table border="1" id="requestsTable">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Клиент</th>
+                <th>Телефон</th>
+                <th>Адрес</th>
+                <th>Проблема</th>
+                <th>Статус</th>
+                <th>Мастер</th>
+                <th>Действия</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+    <br>
+    <a href="/static/index.html">На главную</a>
+
+    <script>
+        const masters = [{id:2, full_name:'Мастер Петров'}, {id:3, full_name:'Мастер Сидоров'}];
+
+        async function loadRequests() {
+            const status = document.getElementById('statusFilter').value;
+            let url = '/api/dispatcher/requests';
+            if (status) url += '?status=' + status;
+            const response = await fetch(url);
+            const requests = await response.json();
+            const tbody = document.querySelector('#requestsTable tbody');
+            tbody.innerHTML = '';
+            for (const req of requests) {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${req.id}</td>
+                    <td>${req.clientName}</td>
+                    <td>${req.phone}</td>
+                    <td>${req.address}</td>
+                    <td>${req.problemText}</td>
+                    <td>${req.status}</td>
+                    <td>${req.assignedTo ? masters.find(m=>m.id===req.assignedTo)?.full_name || req.assignedTo : 'Не назначен'}</td>
+                    <td>
+                        ${req.status === 'new' ? `<button onclick="assignMaster(${req.id})">Назначить мастера</button>` : ''}
+                        ${req.status !== 'done' && req.status !== 'canceled' ? `<button onclick="cancelRequest(${req.id})">Отменить</button>` : ''}
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            }
+        }
+
+        async function assignMaster(requestId) {
+            const masterId = prompt("Введите ID мастера (2 или 3):");
+            if (!masterId) return;
+            const response = await fetch(`/api/dispatcher/requests/${requestId}/assign?master_id=${masterId}`, {
+                method: 'PATCH'
+            });
+            if (response.ok) {
+                alert('Назначено');
+                loadRequests();
+            } else {
+                const err = await response.json();
+                alert('Ошибка: ' + JSON.stringify(err));
+            }
+        }
+
+        async function cancelRequest(requestId) {
+            if (!confirm('Отменить заявку?')) return;
+            const response = await fetch(`/api/dispatcher/requests/${requestId}/cancel`, {
+                method: 'PATCH'
+            });
+            if (response.ok) {
+                alert('Отменено');
+                loadRequests();
+            } else {
+                const err = await response.json();
+                alert('Ошибка: ' + JSON.stringify(err));
+            }
+        }
+
+        loadRequests();
+    </script>
+</body>
+</html>
